@@ -141,7 +141,10 @@ const ClientDetailScreen: React.FC = () => {
         <button className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium">
           Thêm công việc
         </button>
-        <button className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium">
+        <button
+          className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium"
+          onClick={() => router.push(`/add-product?clientId=${clientId}`)}
+        >
           Thêm cơ hội bán
         </button>
         <button className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium">

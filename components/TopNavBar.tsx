@@ -22,6 +22,7 @@ export default function TopNavBar({
 }: TopNavBarProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [khDropdownOpen, setKhDropdownOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const khDropdownRef = useRef<HTMLLIElement>(null);
   const router = useRouter();
@@ -52,6 +53,17 @@ export default function TopNavBar({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [userDropdownOpen, khDropdownOpen]);
+
+  // Handle search submission
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchTerm.trim()) return;
+
+    router.push(
+      `/chi-tiet-khach-hang?id=${encodeURIComponent(searchTerm.trim())}`
+    );
+    setSearchTerm("");
+  };
 
   return (
     <nav className="flex items-center justify-between bg-white px-8 py-4 shadow-sm">
@@ -142,11 +154,17 @@ export default function TopNavBar({
         </ul>
       </div>
       <div className="flex items-center space-x-4">
-        <input
-          type="text"
-          placeholder="Mã số thuế/ Tên KH/ Số CIF"
-          className="px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#ff6a00]"
-        />
+        {/* Search Form */}
+        <form onSubmit={handleSearchSubmit}>
+          <input
+            type="text"
+            placeholder="Mã số thuế/ Tên KH/ Số CIF"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-4 py-2 border border-gray-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#ff6a00] text-black placeholder-gray-500"
+          />
+          <button type="submit" className="hidden" aria-label="Search"></button>
+        </form>
         <div className="relative" ref={userDropdownRef}>
           <button
             className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center focus:outline-none"

@@ -252,15 +252,15 @@ const ReportScreen: React.FC = () => {
                 {isSalesDetailsOpen && (
                   <ul className="pl-4 text-xs space-y-1 text-gray-600">
                     <li className="flex justify-between">
-                      <span>Đặt hẹn được:</span>{" "}
+                      <span>Đặt hẹn được:</span>
                       <span className="text-green-600">0</span>
                     </li>
                     <li className="flex justify-between">
-                      <span>Không đặt hẹn được:</span>{" "}
+                      <span>Không đặt hẹn được:</span>
                       <span className="text-red-600">0</span>
                     </li>
                     <li className="flex justify-between">
-                      <span>Không liên lạc được:</span>{" "}
+                      <span>Không liên lạc được:</span>
                       <span className="text-red-600">0</span>
                     </li>
                   </ul>
