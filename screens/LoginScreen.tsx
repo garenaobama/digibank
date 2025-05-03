@@ -1,17 +1,24 @@
 "use client";
 import React, { useEffect } from "react";
 import LoginForm from "../components/LoginForm";
-import { addUser } from "@/utils/FirebaseApp";
+import { login } from "../models/UserModel";
 
-export default function LoginScreen() {
+export default function LoginScreen({
+  onLoginSuccess,
+}: {
+  onLoginSuccess: () => void;
+}) {
+  const handleLogin = (username: string, password: string) => {
+    const user = login(username, password);
+    if (user) {
+      onLoginSuccess();
+    } else {
+      alert("Sai tài khoản hoặc mật khẩu!");
+    }
+  };
+
   useEffect(() => {
     console.log("LoginScreen");
-    addUser({
-      id: "1",
-      name: "Bach Tran",
-      username: "bach_tran_01",
-      password: "12345678",
-    });
   }, []);
 
   return (
@@ -65,7 +72,7 @@ export default function LoginScreen() {
           background: "#fff",
         }}
       >
-        <LoginForm />
+        <LoginForm onLogin={handleLogin} />
       </div>
     </div>
   );
