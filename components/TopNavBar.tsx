@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { UserModel } from "../models/UserModel";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface TopNavBarProps {
   user: UserModel;
@@ -25,6 +25,7 @@ export default function TopNavBar({
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const khDropdownRef = useRef<HTMLLIElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -108,11 +109,14 @@ export default function TopNavBar({
             let path: string;
             if (item.label === "Cơ hội bán") {
               path = "/co-hoi-ban";
+            } else if (item.label === "Công việc") {
+              path = "/cong-viec";
+            } else if (item.label === "Báo cáo") {
+              path = "/bao-cao";
             } else {
               path = `/${item.label.toLowerCase().replace(/ /g, "-")}`;
             }
-            const isActive =
-              activeNav === item.label.toLowerCase().replace(/ /g, "-");
+            const isActive = pathname === path;
             return (
               <li
                 key={item.label}

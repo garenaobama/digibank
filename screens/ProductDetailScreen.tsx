@@ -2,14 +2,32 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  setDoc,
+} from "firebase/firestore";
 import { app } from "@/utils/FirebaseApp";
 import { ProductModel, SaleStatus } from "@/models/ProductModel";
 import { ClientModel } from "@/models/ClientModel";
+import {
+  TaskModel,
+  TaskType,
+  TaskState,
+  TaskPriority,
+} from "@/models/TaskModel";
 import { FaStar, FaPencilAlt } from "react-icons/fa";
+import { v4 as uuidv4 } from "uuid";
+import toast, { Toaster } from "react-hot-toast";
 
 // Helper to get the order of statuses
 const statusOrder = Object.values(SaleStatus);
+
+// Placeholder for logged-in user - Replace with actual user data access
+const currentUser = { id: "current_user_placeholder_id" }; // TODO: Replace with actual user ID
 
 const ProductDetailScreen: React.FC = () => {
   const searchParams = useSearchParams();
@@ -23,6 +41,13 @@ const ProductDetailScreen: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState<SaleStatus | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [newTaskData, setNewTaskData] = useState<Partial<TaskModel>>({
+    priority: 2,
+    state: TaskState.InProgress,
+  });
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [addTaskError, setAddTaskError] = useState<string | null>(null);
 
   // --- Fetch Product Data ---
   useEffect(() => {
@@ -109,6 +134,52 @@ const ProductDetailScreen: React.FC = () => {
     }
   };
 
+  // --- Add Task to Firestore ---
+  const handleAddTask = async () => {
+    if (
+      !product?.id ||
+      !newTaskData.type ||
+      !newTaskData.deadline ||
+      !newTaskData.priority
+    ) {
+      setAddTaskError(
+        "Please fill in all required fields (Type, Deadline, Priority)."
+      );
+      return;
+    }
+
+    setIsAddingTask(true);
+    setAddTaskError(null);
+    const db = getFirestore(app);
+    const taskId = uuidv4();
+    const taskRef = doc(db, "tasks", taskId);
+
+    const taskToAdd: TaskModel = {
+      id: taskId,
+      type: newTaskData.type,
+      staffId: currentUser.id,
+      deadline: newTaskData.deadline,
+      priority: newTaskData.priority,
+      state: TaskState.InProgress,
+      productId: product.id,
+      createdDate: new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(taskRef, taskToAdd);
+      toast.success("Công việc đã được thêm thành công!");
+      setIsAddTaskModalOpen(false);
+      setNewTaskData({ priority: 2, state: TaskState.InProgress });
+    } catch (err: any) {
+      console.error("Error adding task:", err);
+      const errorMessage = err.message || "Failed to add task.";
+      setAddTaskError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsAddingTask(false);
+    }
+  };
+
   // --- Open Confirmation Modal ---
   const handleStatusClick = (status: SaleStatus) => {
     if (status === product?.status) return; // Don't open modal if clicking the current status
@@ -128,6 +199,7 @@ const ProductDetailScreen: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen text-gray-900">
+      <Toaster position="top-center" reverseOrder={false} />
       {/* Top Header Row */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
@@ -144,7 +216,10 @@ const ProductDetailScreen: React.FC = () => {
           <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium">
             Thêm hoạt động
           </button>
-          <button className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium">
+          <button
+            onClick={() => setIsAddTaskModalOpen(true)}
+            className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium"
+          >
             Thêm công việc
           </button>
           <button className="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded border border-gray-300 text-sm font-medium">
@@ -342,6 +417,21 @@ const ProductDetailScreen: React.FC = () => {
         isLoading={isUpdating}
         errorMessage={error}
       />
+
+      {/* Add Task Modal Render */}
+      <AddTaskModal
+        isOpen={isAddTaskModalOpen}
+        onClose={() => {
+          setIsAddTaskModalOpen(false);
+          setAddTaskError(null);
+          setNewTaskData({ priority: 2, state: TaskState.InProgress }); // Reset form on close
+        }}
+        onSubmit={handleAddTask}
+        taskData={newTaskData}
+        setTaskData={setNewTaskData}
+        isLoading={isAddingTask}
+        error={addTaskError}
+      />
     </div>
   );
 };
@@ -392,6 +482,143 @@ const ConfirmationModal = ({
             {isLoading ? "Đang cập nhật..." : "Đồng ý"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const AddTaskModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  taskData,
+  setTaskData,
+  isLoading,
+  error,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  taskData: Partial<TaskModel>;
+  setTaskData: React.Dispatch<React.SetStateAction<Partial<TaskModel>>>;
+  isLoading: boolean;
+  error: string | null;
+}) => {
+  if (!isOpen) return null;
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setTaskData((prev) => ({
+      ...prev,
+      [name]: name === "priority" ? parseInt(value, 10) : value,
+    }));
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex justify-center items-center z-50"
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
+    >
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h3 className="text-lg font-medium mb-4">Thêm công việc mới</h3>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className="space-y-4 mb-6">
+            {/* Task Type Dropdown */}
+            <div>
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Loại công việc
+              </label>
+              <select
+                id="type"
+                name="type"
+                required
+                value={taskData.type || ""}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="" disabled>
+                  Chọn loại công việc
+                </option>
+                {Object.values(TaskType).map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Deadline Input */}
+            <div>
+              <label
+                htmlFor="deadline"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Thời hạn
+              </label>
+              <input
+                type="date"
+                id="deadline"
+                name="deadline"
+                required
+                value={taskData.deadline || ""}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-orange-500 focus:border-orange-500"
+              />
+            </div>
+
+            {/* Priority Dropdown */}
+            <div>
+              <label
+                htmlFor="priority"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Độ ưu tiên
+              </label>
+              <select
+                id="priority"
+                name="priority"
+                required
+                value={taskData.priority || ""}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="1">Cao</option>
+                <option value="2">Trung bình</option>
+                <option value="3">Thấp</option>
+              </select>
+            </div>
+          </div>
+
+          {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Đang thêm..." : "Thêm"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
