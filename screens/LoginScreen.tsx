@@ -1,17 +1,18 @@
 "use client";
 import React, { useEffect } from "react";
 import LoginForm from "../components/LoginForm";
-import { login } from "../models/UserModel";
+import { loginWithFirestore } from "../utils/FirebaseApp";
+import type { UserModel } from "../models/UserModel";
 
 export default function LoginScreen({
   onLoginSuccess,
 }: {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: UserModel) => void;
 }) {
-  const handleLogin = (username: string, password: string) => {
-    const user = login(username, password);
+  const handleLogin = async (username: string, password: string) => {
+    const user = await loginWithFirestore(username, password);
     if (user) {
-      onLoginSuccess();
+      onLoginSuccess(user);
     } else {
       alert("Sai tài khoản hoặc mật khẩu!");
     }

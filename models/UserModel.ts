@@ -3,6 +3,7 @@ export interface UserModel {
     name: string;
     username: string;
     password: string;
+    email?: string;
 }
 
 // Simple user repository (MVP, hardcoded)

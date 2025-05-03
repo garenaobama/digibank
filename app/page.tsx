@@ -1,14 +1,11 @@
 "use client";
-import HomeScreen from "../screens/HomeScreen";
-import LoginScreen from "../screens/LoginScreen";
-import { useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function HomePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  return isLoggedIn ? (
-    <HomeScreen />
-  ) : (
-    <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />
-  );
+export default function RootRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/home");
+  }, [router]);
+  return null;
 }

@@ -38,4 +38,18 @@ export async function addUser(user: UserModel) {
     return docRef;
 }
 
+/**
+ * Login with Firestore: returns user if credentials match, else null
+ */
+export async function loginWithFirestore(username: string, password: string): Promise<UserModel | null> {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username), where("password", "==", password));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        return doc.data() as UserModel;
+    }
+    return null;
+}
+
 export { app, analytics }; 
