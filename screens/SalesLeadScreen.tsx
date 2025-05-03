@@ -12,7 +12,11 @@ import {
   startAfter,
 } from "firebase/firestore";
 import { app } from "../utils/FirebaseApp";
-import { ClientType, ClientModel } from "../models/ClientModel";
+import {
+  ClientType,
+  ClientModel,
+  YearlyFinancials,
+} from "../models/ClientModel";
 import { UserModel } from "../models/UserModel";
 
 const PAGE_SIZE = 10;
@@ -36,6 +40,19 @@ function formatDate(dateStr: string) {
   if (!dateStr) return "--";
   const d = new Date(dateStr);
   return d.toLocaleDateString("vi-VN");
+}
+
+// Helper function to get the latest net revenue
+function getLatestNetRevenue(
+  financials: YearlyFinancials[] | undefined
+): number {
+  if (!financials || financials.length === 0) {
+    return 0;
+  }
+  const latestFinancial = financials.reduce((latest, current) => {
+    return current.year > latest.year ? current : latest;
+  });
+  return latestFinancial.netRevenue ?? 0;
 }
 
 export default function SalesLeadScreen() {
@@ -178,7 +195,7 @@ export default function SalesLeadScreen() {
                   <td className="px-4 py-2 text-black">{client.taxCode}</td>
                   <td className="px-4 py-2 text-black">{client.segment}</td>
                   <td className="px-4 py-2 text-black">
-                    {client.netRevenue.toLocaleString()}
+                    {getLatestNetRevenue(client.financials).toLocaleString()}
                   </td>
                   <td className="px-4 py-2 text-black">
                     {getStaffName(client.staffId)}

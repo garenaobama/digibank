@@ -104,16 +104,31 @@ export default function TopNavBar({
             )}
           </li>
           {/* Other nav items */}
-          {navItems.slice(1).map((item) => (
-            <li
-              key={item.label}
-              className={`font-semibold text-[#222] hover:text-[#ff6a00] cursor-pointer ${
-                activeNav === item.label ? "text-[#ff6a00]" : ""
-              }`}
-            >
-              {item.label}
-            </li>
-          ))}
+          {navItems.slice(1).map((item) => {
+            let path: string;
+            if (item.label === "Cơ hội bán") {
+              path = "/co-hoi-ban";
+            } else {
+              path = `/${item.label.toLowerCase().replace(/ /g, "-")}`;
+            }
+            const isActive =
+              activeNav === item.label.toLowerCase().replace(/ /g, "-");
+            return (
+              <li
+                key={item.label}
+                className={`font-semibold text-[#222] hover:text-[#ff6a00] cursor-pointer ${
+                  isActive ? "text-[#ff6a00]" : ""
+                }`}
+              >
+                <button
+                  onClick={() => router.push(path)}
+                  className="focus:outline-none"
+                >
+                  {item.label}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
       <div className="flex items-center space-x-4">

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   ClientModel,
   ClientType,
@@ -10,10 +10,31 @@ import {
 } from "../models/ClientModel";
 import { UserContext } from "../app/layout";
 import { useRouter } from "next/navigation";
+import vietnamUnits from "../raw/vietnam_unit.json"; // Import the JSON data
+
+// Define interfaces for the JSON data structure (optional but good practice)
+interface Ward {
+  Code: string;
+  FullName: string;
+  DistrictCode: string;
+}
+
+interface District {
+  Code: string;
+  FullName: string;
+  ProvinceCode: string;
+  Ward: Ward[] | null; // Allow Ward to be null
+}
+
+interface Province {
+  Code: string;
+  FullName: string;
+  District: District[];
+}
 
 // Mock data for dropdowns - replace with API calls if needed
-const provinces = ["Hà Nội", "TP Hồ Chí Minh", "Đà Nẵng", "Khác"];
-const districts = ["Quận Cầu Giấy", "Quận 1", "Quận Sơn Trà", "Khác"];
+// const provinces = ["Hà Nội", "TP Hồ Chí Minh", "Đà Nẵng", "Khác"]; // Remove mock data
+// const districts = ["Quận Cầu Giấy", "Quận 1", "Quận Sơn Trà", "Khác"]; // Remove mock data
 const contactTitles = ["Giám đốc", "Kế toán trưởng", "Người liên hệ khác"];
 const currentYear = new Date().getFullYear();
 const years = [currentYear, currentYear - 1, currentYear - 2];
@@ -36,8 +57,8 @@ export default function AddClientScreen() {
   const router = useRouter();
   const [formData, setFormData] = useState<Partial<ClientModel>>({
     type: ClientType.SaleLead,
-    province: provinces[0],
-    district: districts[0],
+    // province: provinces[0], // Remove initial mock province
+    // district: districts[0], // Remove initial mock district
     businessType: BusinessType.Limited,
     segment: CustomerSegment.SME_Manufacturing,
     contactTitle: contactTitles[0],
@@ -50,15 +71,119 @@ export default function AddClientScreen() {
       shortTermDebt: 0,
       longTermDebt: 0,
     })),
+    province: "", // Initialize province
+    district: "", // Initialize district
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>("");
+
+  useEffect(() => {
+    // Load provinces from JSON data on component mount
+    setProvinces(vietnamUnits as Province[]);
+    // Set initial province if available and not already set
+    if (vietnamUnits.length > 0 && !formData.province) {
+      const initialProvince = vietnamUnits[0];
+      setSelectedProvinceCode(initialProvince.Code);
+      setFormData((prev) => ({ ...prev, province: initialProvince.FullName }));
+      const initialDistricts = initialProvince.District?.filter((d) => d) || []; // Filter out potential null/undefined districts if any
+      setDistricts(initialDistricts as District[]);
+      // Set initial district if available and not already set
+      if (initialDistricts.length > 0 && !formData.district) {
+        setFormData((prev) => ({
+          ...prev,
+          district: initialDistricts[0].FullName,
+        }));
+      } else {
+        setFormData((prev) => ({ ...prev, district: "" })); // Reset district if none available
+      }
+    } else if (formData.province) {
+      // If formData already has a province, find its code and load districts
+      const currentProvince = vietnamUnits.find(
+        (p) => p.FullName === formData.province
+      );
+      if (currentProvince) {
+        setSelectedProvinceCode(currentProvince.Code);
+        const currentDistricts =
+          currentProvince.District?.filter((d) => d) || [];
+        setDistricts(currentDistricts as District[]);
+        // Ensure district is valid for the current province
+        const currentDistrict = currentDistricts.find(
+          (d) => d.FullName === formData.district
+        );
+        if (!currentDistrict && currentDistricts.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            district: currentDistricts[0].FullName,
+          }));
+        } else if (!currentDistrict) {
+          setFormData((prev) => ({ ...prev, district: "" }));
+        }
+      } else {
+        // Handle case where saved province is not in the list (e.g., data update)
+        setFormData((prev) => ({ ...prev, province: "", district: "" }));
+        setSelectedProvinceCode("");
+        setDistricts([]);
+      }
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  useEffect(() => {
+    // Update districts when selectedProvinceCode changes
+    const selectedProvinceData = provinces.find(
+      (p) => p.Code === selectedProvinceCode
+    );
+    if (selectedProvinceData) {
+      const provinceDistricts =
+        selectedProvinceData.District?.filter((d) => d) || [];
+      setDistricts(provinceDistricts as District[]);
+      // Reset district selection if the new province has districts, otherwise clear it
+      if (provinceDistricts.length > 0) {
+        // Check if the current district exists in the new list, if not, set to the first one
+        const currentDistrictExists = provinceDistricts.some(
+          (d) => d.FullName === formData.district
+        );
+        if (!currentDistrictExists) {
+          setFormData((prev) => ({
+            ...prev,
+            district: provinceDistricts[0].FullName,
+          }));
+        }
+      } else {
+        setFormData((prev) => ({ ...prev, district: "" }));
+      }
+    } else {
+      setDistricts([]);
+      setFormData((prev) => ({ ...prev, district: "" })); // Clear district if province is invalid/cleared
+    }
+  }, [selectedProvinceCode, provinces, formData.district]); // Rerun when province code or province list changes
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "province") {
+      const selectedProv = provinces.find((p) => p.FullName === value);
+      if (selectedProv) {
+        setSelectedProvinceCode(selectedProv.Code);
+        // Update form data with the full name
+        setFormData((prev) => ({
+          ...prev,
+          province: value,
+          // Reset district when province changes - handled by useEffect now
+          // district: "", // Let useEffect handle the district reset/update
+        }));
+      } else {
+        // Handle case where selected value doesn't match a province (e.g., placeholder)
+        setSelectedProvinceCode("");
+        setFormData((prev) => ({ ...prev, province: value, district: "" }));
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleFinancialChange = (
@@ -101,8 +226,8 @@ export default function AddClientScreen() {
       // Ensure default values for potentially undefined fields
       companyPhone: formData.companyPhone || "",
       companyEmail: formData.companyEmail || "",
-      province: formData.province || provinces[0],
-      district: formData.district || districts[0],
+      province: formData.province || "", // Use the selected province name
+      district: formData.district || "", // Use the selected district name
       address: formData.address || "",
       businessType: formData.businessType || BusinessType.Limited,
       contactName: formData.contactName || "",
@@ -209,9 +334,10 @@ export default function AddClientScreen() {
                 required
                 className="w-full border border-gray-300 px-3 py-2 rounded-md text-black bg-white"
               >
+                <option value="">Chọn Tỉnh/ Thành phố</option>
                 {provinces.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
+                  <option key={p.Code} value={p.FullName}>
+                    {p.FullName}
                   </option>
                 ))}
               </select>
@@ -225,11 +351,13 @@ export default function AddClientScreen() {
                 value={formData.district || ""}
                 onChange={handleChange}
                 required
-                className="w-full border border-gray-300 px-3 py-2 rounded-md text-black bg-white"
+                disabled={!selectedProvinceCode || districts.length === 0} // Disable if no province selected or no districts
+                className="w-full border border-gray-300 px-3 py-2 rounded-md text-black bg-white disabled:bg-gray-100"
               >
+                <option value="">Chọn Quận/ Huyện</option>
                 {districts.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                  <option key={d.Code} value={d.FullName}>
+                    {d.FullName}
                   </option>
                 ))}
               </select>
@@ -370,26 +498,29 @@ export default function AddClientScreen() {
                     <td className="border border-gray-300 px-3 py-2 text-sm text-gray-700">
                       {financialFieldLabels[field]} (VND)
                     </td>
-                    {years.map((year) => (
-                      <td
-                        key={`${field}-${year}`}
-                        className="border border-gray-300 px-3 py-2"
-                      >
-                        <input
-                          type="number"
-                          value={
-                            formData.financials?.find((f) => f.year === year)?.[
-                              field
-                            ] || 0
-                          }
-                          onChange={(e) =>
-                            handleFinancialChange(year, field, e.target.value)
-                          }
-                          className="w-full border border-gray-300 px-3 py-1 rounded-md text-black"
-                          placeholder="Nhập"
-                        />
-                      </td>
-                    ))}
+                    {years.map((year) => {
+                      const financialValue =
+                        formData.financials?.find((f) => f.year === year)?.[
+                          field
+                        ] ?? 0;
+                      // console.log(`Year: ${year}, Field: ${field}, Value: ${financialValue}`); // Add console log for debugging
+                      return (
+                        <td
+                          key={`${field}-${year}`}
+                          className="border border-gray-300 px-3 py-2"
+                        >
+                          <input
+                            type="number"
+                            value={financialValue} // Use the calculated value
+                            onChange={(e) =>
+                              handleFinancialChange(year, field, e.target.value)
+                            }
+                            className="w-full border border-gray-300 px-3 py-1 rounded-md text-black"
+                            placeholder="Nhập"
+                          />
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

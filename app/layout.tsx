@@ -60,7 +60,16 @@ export default function RootLayout({
 
   // Don't render anything until auth check is complete
   if (isLoading) {
-    return null; // Or a loading spinner
+    // Return minimal structure during loading instead of null
+    return (
+      <html lang="en">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {/* Optional: Add a loading spinner here */}
+        </body>
+      </html>
+    );
   }
 
   // Determine if the nav bar should be shown

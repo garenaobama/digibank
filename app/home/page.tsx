@@ -21,5 +21,5 @@ export default function HomeDashboardPage() {
   };
 
   if (!user) return null;
-  return <HomeScreen user={user} onLogout={handleLogout} />;
+  return <HomeScreen user={user} />;
 }
