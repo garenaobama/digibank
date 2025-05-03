@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { app } from "@/utils/FirebaseApp";
 import { ProductModel, SaleStatus } from "@/models/ProductModel";
-import { ClientModel } from "@/models/ClientModel";
+import { ClientModel, ClientType } from "@/models/ClientModel";
 import {
   TaskModel,
   TaskType,
@@ -116,19 +116,49 @@ const ProductDetailScreen: React.FC = () => {
     const productRef = doc(db, "products", product.id);
 
     try {
+      // 1. Update Product Status
       await updateDoc(productRef, {
         status: newStatus,
       });
-      // Update local state to reflect the change immediately
+      toast.success("Trạng thái cơ hội bán đã được cập nhật!"); // Toast for product update
+
+      // 2. If status is Approved, update Client Type to Available
+      if (newStatus === SaleStatus.Approved && product.clientId) {
+        const clientRef = doc(db, "clients", product.clientId);
+        try {
+          await updateDoc(clientRef, {
+            type: ClientType.Available,
+          });
+          toast.success(
+            `Khách hàng ${
+              clientData?.name || product.clientId
+            } đã được chuyển sang Hiện hữu.`
+          ); // Toast for client update
+          // No need to update local clientData state here, as this screen isn't showing the type
+        } catch (clientErr: any) {
+          console.error("Error updating client type:", clientErr);
+          // Show a separate error toast for the client update failure
+          toast.error(
+            `Lỗi cập nhật loại khách hàng: ${
+              clientErr.message || "Unknown error"
+            }`
+          );
+          // Note: Product status update was still successful.
+        }
+      }
+
+      // Update local product state *after* potential client update attempt
       setProduct((prevProduct) =>
         prevProduct ? { ...prevProduct, status: newStatus } : null
       );
-      setIsModalOpen(false); // Close modal on success
+      setIsModalOpen(false);
       setTargetStatus(null);
     } catch (err: any) {
       console.error("Error updating product status:", err);
       setError(err.message || "Failed to update status.");
-      // Keep modal open on error to show feedback or allow retry?
+      toast.error(
+        `Lỗi cập nhật trạng thái cơ hội bán: ${err.message || "Unknown error"}`
+      );
     } finally {
       setIsUpdating(false);
     }

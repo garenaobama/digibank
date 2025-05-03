@@ -49,13 +49,15 @@ function getLatestNetRevenue(
   if (!financials || financials.length === 0) {
     return 0;
   }
+  // Ensure financials array is not empty before accessing index 0
   const latestFinancial = financials.reduce((latest, current) => {
     return current.year > latest.year ? current : latest;
-  });
-  return latestFinancial.netRevenue ?? 0;
+  }, financials[0]);
+  return latestFinancial?.netRevenue ?? 0;
 }
 
-export default function SalesLeadScreen() {
+// Renamed screen component
+export default function CurrentClientScreen() {
   const router = useRouter();
   const [clients, setClients] = useState<ClientModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,13 +66,13 @@ export default function SalesLeadScreen() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // Fetch total count for pagination
+  // Fetch total count for pagination - Filter by Available
   useEffect(() => {
     async function fetchTotal() {
       const db = getFirestore(app);
       const q = query(
         collection(db, "clients"),
-        where("type", "==", ClientType.SaleLead)
+        where("type", "==", ClientType.Available) // Filter by Available
       );
       const snapshot = await getDocs(q);
       setTotal(snapshot.size);
@@ -78,23 +80,23 @@ export default function SalesLeadScreen() {
     fetchTotal();
   }, []);
 
-  // Fetch clients
+  // Fetch clients - Filter by Available
   useEffect(() => {
     async function fetchClients() {
       setLoading(true);
       const db = getFirestore(app);
       let q = query(
         collection(db, "clients"),
-        where("type", "==", ClientType.SaleLead),
+        where("type", "==", ClientType.Available), // Filter by Available
         orderBy("id"),
         limit(PAGE_SIZE)
       );
+
       if (search) {
-        // Search by name or taxCode (case-insensitive)
-        // Firestore doesn't support OR, so filter after fetch
+        // Adjust search logic if needed for Available clients
         const allQ = query(
           collection(db, "clients"),
-          where("type", "==", ClientType.SaleLead)
+          where("type", "==", ClientType.Available)
         );
         const allSnap = await getDocs(allQ);
         const filtered = allSnap.docs
@@ -105,49 +107,86 @@ export default function SalesLeadScreen() {
               c.taxCode.toLowerCase().includes(search.toLowerCase())
           );
         setClients(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+        setTotal(filtered.length); // Update total based on search results
+        setLastDoc(null); // Reset pagination for search
         setLoading(false);
         return;
       }
-      if (page > 1 && lastDoc) {
+
+      // Reset total when search is cleared
+      if (!search && total !== clients.length) {
+        // Basic check, might need refinement
+        async function fetchTotal() {
+          const db = getFirestore(app);
+          const q = query(
+            collection(db, "clients"),
+            where("type", "==", ClientType.Available)
+          );
+          const snapshot = await getDocs(q);
+          setTotal(snapshot.size);
+        }
+        fetchTotal();
+      }
+
+      if (page > 1 && lastDoc && !search) {
         q = query(
           collection(db, "clients"),
-          where("type", "==", ClientType.SaleLead),
+          where("type", "==", ClientType.Available),
           orderBy("id"),
           startAfter(lastDoc),
           limit(PAGE_SIZE)
         );
+      } else if (page === 1 && !search) {
+        // Ensure first page query doesn't use startAfter
+        q = query(
+          collection(db, "clients"),
+          where("type", "==", ClientType.Available),
+          orderBy("id"),
+          limit(PAGE_SIZE)
+        );
       }
-      const snapshot = await getDocs(q);
-      setClients(snapshot.docs.map((doc) => doc.data() as ClientModel));
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+
+      // Don't run query again if searching (already handled above)
+      if (!search) {
+        const snapshot = await getDocs(q);
+        setClients(snapshot.docs.map((doc) => doc.data() as ClientModel));
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      }
+
       setLoading(false);
     }
     fetchClients();
     // eslint-disable-next-line
-  }, [page, search]);
+  }, [page, search]); // Removed lastDoc dependency to avoid loops with search
 
   return (
     <div className="p-6 bg-white min-h-full">
+      {/* Title can be updated if needed */}
+      <h1 className="text-xl font-semibold mb-4">
+        Danh mục khách hàng hiện hữu
+      </h1>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <input
             type="text"
             placeholder="Mã số thuế/ Tên KH/ Số CIF"
-            className="border px-4 py-2 rounded-lg w-80 mr-2 text-black placeholder-black"
+            className="border px-4 py-2 rounded-lg w-80 mr-2 text-black placeholder-gray-500"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
+              const newSearch = e.target.value;
+              setSearch(newSearch);
+              setPage(1); // Reset to page 1 on search
+              setLastDoc(null);
             }}
           />
-          <button className="bg-[#ff6a00] text-white px-4 py-2 rounded-lg">
-            Tìm kiếm
-          </button>
+          {/* Search button might not be needed if filtering on change */}
+          {/* <button className="bg-[#ff6a00] text-white px-4 py-2 rounded-lg">Tìm kiếm</button> */}
         </div>
         <div>
+          {/* Add client button might navigate to a different route or be removed */}
           <button
             className="bg-[#ff6a00] text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-1"
-            onClick={() => router.push("/them-khach-hang")}
+            onClick={() => router.push("/them-khach-hang")} // Or a different add route?
           >
             Thêm khách hàng
             <span className="text-xl">+</span>
@@ -167,7 +206,7 @@ export default function SalesLeadScreen() {
               <th className="px-4 py-2 text-left text-black">
                 Cán bộ tiếp cận
               </th>
-              <th className="px-4 py-2 text-left text-black">Ngày phân bổ</th>
+              <th className="px-4 py-2 text-left text-black">Ngày thêm</th>
             </tr>
           </thead>
           <tbody>
@@ -188,6 +227,7 @@ export default function SalesLeadScreen() {
                 <tr
                   key={client.id}
                   className="border-b hover:bg-gray-50 cursor-pointer text-black"
+                  // Navigate to a detail screen specific to available clients?
                   onClick={() =>
                     router.push(`/chi-tiet-khach-hang?id=${client.id}`)
                   }
@@ -215,6 +255,7 @@ export default function SalesLeadScreen() {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
         <div className="text-black">
+          {/* Show total count based on search or full list */}
           Hiển thị {clients.length} / {total} mục
         </div>
         <div className="flex items-center space-x-2">
@@ -228,8 +269,9 @@ export default function SalesLeadScreen() {
           <span>Trang {page}</span>
           <button
             className="px-3 py-1 rounded border disabled:opacity-50"
+            // Disable next based on total and current page/page size
             onClick={() => setPage((p) => p + 1)}
-            disabled={clients.length < PAGE_SIZE}
+            disabled={page * PAGE_SIZE >= total}
           >
             &gt;
           </button>

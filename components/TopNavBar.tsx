@@ -98,7 +98,13 @@ export default function TopNavBar({
                 >
                   Khách hàng tiềm năng
                 </button>
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-[#222]">
+                <button
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-[#222]"
+                  onClick={() => {
+                    setKhDropdownOpen(false);
+                    router.push("/khach-hang-hien-huu");
+                  }}
+                >
                   Danh mục khách hàng hiện hữu
                 </button>
               </div>
